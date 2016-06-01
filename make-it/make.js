@@ -361,6 +361,7 @@ function buildVireo(targetOptions, outputName) {
     compile(opts, 'io/FileIO.cpp');
     compile(opts, 'io/DebugGPIO.cpp');
     compile(opts, 'io/HttpClient.cpp');
+    compile(opts, 'io/WebBluetoothClient.cpp');
     compile(opts, 'io/WebSocketClient.cpp');
     compile(opts, 'io/Linx.cpp');       // to be pulled into side module
     compile(opts, 'io/Canvas2d.cpp');   // to be pulled into side module
@@ -384,6 +385,7 @@ function buildVireo(targetOptions, outputName) {
     ];
 
     opts.jsLibraries = [
+        'io/library_webBluetoothClient.js',
         'io/library_httpClient.js',
         'io/library_webSocketClient.js',
         'io/library_canvas2d.js'        // to be pulled into side module
