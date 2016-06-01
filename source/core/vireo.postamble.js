@@ -209,6 +209,65 @@ HttpUsers = function () {
     }
 };
 
+WebBluetooth = function () {
+    'use strict';
+
+    // Methods
+    if (typeof this.WebBluetoothMethods !== 'function') {
+        var proto = WebBluetooth.prototype;
+
+        proto.WebBluetoothMethods = function() { };
+
+        proto.getDevice = function(servicesArray) {
+            if (!Array.isArray(servicesArray)) {
+                throw new Error('Invalid parameters in getDevice, looking for an Array, provided: ' + servicesArray);
+            }
+            return navigator.bluetooth.requestDevice(
+                {filters: [{services: servicesArray}] });
+        };
+
+        proto.getServer = function(device, attempts) {
+            console.log('Connecting to GATT Server...');
+            return device.gatt.connect()
+            .then(function(server) {
+                console.log(server);
+                if (server.connected === true) {
+                    console.log('Connected!');
+                    console.log(server);
+                    return server;
+                } else {
+                    console.log('Not Connected, retrying...');
+                    return proto.getServer(device,attempts+1);
+                }
+            })
+            .catch(function(error) {
+                console.log('Error in connection: ' + error);
+                if (++attempts < 8) {
+                    console.log('Retrying(' + attempts + ')');
+                    return proto.getServer(device,attempts);
+                } else {
+                    throw error;
+                }
+            });
+        };
+
+        proto.getService = function(server, serviceName) {
+            console.log('Getting ' + serviceName + '...');
+            return server.getPrimaryService(serviceName);
+        };
+
+        proto.getCharacteristic = function(service, characteristic) {
+            console.log('Getting ' + characteristic + ' Characteristic...');
+            return service.getCharacteristic(characteristic);
+        };
+
+        proto.getValue = function(characteristic) {
+            console.log('Reading Value...');
+            return characteristic.readValue();
+        };
+    }
+};
+
 WebSocketUser = function () {
     "use strict";
 
@@ -248,8 +307,7 @@ WebSocketUsers = function () {
             {
                 throw new Error('Unknown handle(' + handle + ').');
             }
-        };
-
+        }; 
         proto.get = function (handle) {
             var strHandle = handle.toString();
             if (this.webSocketClients.hasOwnProperty(strHandle))
@@ -270,6 +328,8 @@ WebSocketUsers = function () {
 var httpUsers = new HttpUsers();
 
 var webSocketUsers = new WebSocketUsers();
+
+var webBluetooth = new WebBluetooth();
 
 //TODO: tnelligan break this up into generic, http, websockets
 return {
@@ -484,6 +544,29 @@ return {
             NationalInstruments.Vireo.dataWriteString(errorMessage, errorString, errorString.length);
             NationalInstruments.Vireo.setOccurence(occurrenceRef);
             return errorNum;
+        },
+    getWebBluetoothBatteryLevel:
+        function (userHandle, errorMessage) {
+            console.log('Requesting Bluetooth Device battery level...');
+
+            return webBluetooth.getDevice(['battery_service'])
+                .then(function(device) { return webBluetooth.getServer(device,0) })
+                .then(function(server) { return webBluetooth.getService(server, 'battery_service') })
+                .then(function(service) { return webBluetooth.getCharacteristic(service, 'battery_level') })
+                .then(webBluetooth.getValue)
+                .then(function(value) {
+                    var batteryLevel = value.getUint8(0);
+                    console.log('> Battery Level is ' + batteryLevel + '%');
+                    errorMessage = "";
+                    NationalInstruments.Vireo.dataWriteString(errorMessage, '', 0);
+                    return 0;
+                })
+                .catch(function(error) {
+                    console.log('Argh! ' + error);
+                    console.log(error);
+                    NationalInstruments.Vireo.dataWriteString(errorMessage, error, error.length);
+                    return -1;
+                });
         }
 };
 
