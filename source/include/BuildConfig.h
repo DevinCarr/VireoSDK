@@ -1,9 +1,9 @@
 /**
- 
+
 Copyright (c) 2014-2015 National Instruments Corp.
- 
+
 This software is subject to the terms described in the LICENSE.TXT file
- 
+
 SDG
 */
 
@@ -119,6 +119,7 @@ SDG
     #define VIREO_TYPE_Timestamp 1
     #define VIREO_TYPE_Canvas2D  1
     #define VIREO_TYPE_HttpClient 1
+		#define VIREO_TYPE_WebBluetoothClient 1
     #define VIREO_TYPE_WebSocketClient 1
     #define VIREO_DEBUG_GPIO_STDIO 1
     #define VIREO_TIME_FORMATTING 1

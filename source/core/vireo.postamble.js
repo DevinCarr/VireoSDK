@@ -212,18 +212,36 @@ HttpUsers = function () {
 WebBluetooth = function () {
     'use strict';
 
+    // Properties
+    this.devices = {};
+
     // Methods
     if (typeof this.WebBluetoothMethods !== 'function') {
         var proto = WebBluetooth.prototype;
 
         proto.WebBluetoothMethods = function() { };
 
-        proto.getDevice = function(servicesArray) {
+        proto.getDevice = function(handle) {
+            var strHandle = handle.toString();
+            console.log('getDevice: ' + handle);
+            console.log(this.devices);
+            if (this.devices.hasOwnProperty(strHandle)) {
+                var device = this.devices[strHandle];
+                return device;
+            } else {
+                return undefined;
+            }
+        };
+
+        proto.requestDevice = function(servicesArray) {
             if (!Array.isArray(servicesArray)) {
                 throw new Error('Invalid parameters in getDevice, looking for an Array, provided: ' + servicesArray);
             }
-            return navigator.bluetooth.requestDevice(
+            var device = navigator.bluetooth.requestDevice(
                 {filters: [{services: servicesArray}] });
+            var handle = Object.keys(this.devices).length + 1;
+            this.devices[handle] = device;
+            return handle;
         };
 
         proto.getServer = function(device, attempts) {
@@ -307,7 +325,7 @@ WebSocketUsers = function () {
             {
                 throw new Error('Unknown handle(' + handle + ').');
             }
-        }; 
+        };
         proto.get = function (handle) {
             var strHandle = handle.toString();
             if (this.webSocketClients.hasOwnProperty(strHandle))
@@ -545,11 +563,19 @@ return {
             NationalInstruments.Vireo.setOccurence(occurrenceRef);
             return errorNum;
         },
+    requestWebBluetoothDevice:
+        function (services) {
+            return webBluetooth.requestDevice(services);
+        },
+    getWebBluetoothDevice:
+        function (userHandle) {
+            return webBluetooth.getDevice(userHandle);
+        },
     getWebBluetoothBatteryLevel:
-        function (userHandle, errorMessage) {
+        function (userHandle) {
             console.log('Requesting Bluetooth Device battery level...');
 
-            return webBluetooth.getDevice(['battery_service'])
+            return webBluetooth.getDevice(userHandle)
                 .then(function(device) { return webBluetooth.getServer(device,0) })
                 .then(function(server) { return webBluetooth.getService(server, 'battery_service') })
                 .then(function(service) { return webBluetooth.getCharacteristic(service, 'battery_level') })
@@ -564,8 +590,7 @@ return {
                 .catch(function(error) {
                     console.log('Argh! ' + error);
                     console.log(error);
-                    NationalInstruments.Vireo.dataWriteString(errorMessage, error, error.length);
-                    return -1;
+                    return error;
                 });
         }
 };
