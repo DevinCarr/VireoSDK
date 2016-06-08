@@ -209,17 +209,29 @@ HttpUsers = function () {
     }
 };
 
+
 WebBluetooth = function () {
     'use strict';
 
     // Properties
     this.devices = {};
+    this.request = {};
 
     // Methods
     if (typeof this.WebBluetoothMethods !== 'function') {
         var proto = WebBluetooth.prototype;
 
         proto.WebBluetoothMethods = function() { };
+
+        proto.putDeviceOcc = function(occurrenceRef, userHandlePointer) {
+            if (this.request.occurrence !== undefined || this.request.userHandle !== undefined) {
+                throw new Error('Device Occurrence already exists: ' + this.request.occurrence + ' and ' + this.request.userHandle);
+            }
+            this.request.occurrence = occurrenceRef;
+            this.request.userHandle = userHandlePointer;
+            console.log('request has been set');
+            console.log(this.request);
+        };
 
         proto.getDevice = function(handle) {
             var strHandle = handle.toString();
@@ -237,9 +249,22 @@ WebBluetooth = function () {
             if (!Array.isArray(servicesArray)) {
                 throw new Error('Invalid parameters in getDevice, looking for an Array, provided: ' + servicesArray);
             }
-            var device = navigator.bluetooth.requestDevice(
-                {filters: [{services: servicesArray}] });
+            var that = this;
             var handle = Object.keys(this.devices).length + 1;
+            var device = navigator.bluetooth.requestDevice(
+                {filters: [{services: servicesArray}] })
+                .then(function(dev) {
+                    console.log('request device handle (' + that.request.userHandle + '): ' + handle);
+                    console.log('request device occurrence: ' + that.request.occurrence);
+                    NationalInstruments.Vireo.dataWriteUInt32(that.request.userHandle, handle);
+                    NationalInstruments.Vireo.setOccurence(that.request.occurrence);
+                    return dev;
+                })
+                .catch(function(error) {
+                    console.log('Error setting occurrence for device:');
+                    console.log(error);
+                    return -1;
+                });
             this.devices[handle] = device;
             return handle;
         };
@@ -271,16 +296,19 @@ WebBluetooth = function () {
 
         proto.getService = function(server, serviceName) {
             console.log('Getting ' + serviceName + '...');
+            console.log(server);
             return server.getPrimaryService(serviceName);
         };
 
         proto.getCharacteristic = function(service, characteristic) {
             console.log('Getting ' + characteristic + ' Characteristic...');
+            console.log(service);
             return service.getCharacteristic(characteristic);
         };
 
         proto.getValue = function(characteristic) {
             console.log('Reading Value...');
+            console.log(characteristic);
             return characteristic.readValue();
         };
     }
@@ -563,6 +591,10 @@ return {
             NationalInstruments.Vireo.setOccurence(occurrenceRef);
             return errorNum;
         },
+    putDeviceOccurrence:
+        function (occurrenceRef, handler) {
+            webBluetooth.putDeviceOcc(occurrenceRef, handler);
+        },
     requestWebBluetoothDevice:
         function (services) {
             return webBluetooth.requestDevice(services);
@@ -574,6 +606,7 @@ return {
     getWebBluetoothBatteryLevel:
         function (userHandle) {
             console.log('Requesting Bluetooth Device battery level...');
+            console.log('handleid: ' + userHandle);
 
             return webBluetooth.getDevice(userHandle)
                 .then(function(device) { return webBluetooth.getServer(device,0) })
@@ -581,6 +614,8 @@ return {
                 .then(function(service) { return webBluetooth.getCharacteristic(service, 'battery_level') })
                 .then(webBluetooth.getValue)
                 .then(function(value) {
+                    console.log('Got Value:');
+                    console.log(value);
                     var batteryLevel = value.getUint8(0);
                     console.log('> Battery Level is ' + batteryLevel + '%');
                     errorMessage = "";
