@@ -209,13 +209,64 @@ HttpUsers = function () {
     }
 };
 
-
-WebBluetooth = function () {
+CookieJar = function() {
     'use strict';
 
     // Properties
-    this.devices = {};
-    this.request = {};
+    this.jar = new Map();
+
+    // Methods
+    if (typeof this.CookieJarMethods !== 'function') {
+        var proto = CookieJar.prototype;
+
+        proto.CookieJarMethods = function() { };
+
+        proto.create = function (item) {
+            var cookie = this.jar.size + 1;
+            this.jar.set(cookie, item);
+            return cookie;
+        };
+
+        proto.remove = function (cookie) {
+            if (this.jar.has(cookie)) {
+                return this.jar.delete(cookie);
+            } else {
+                throw new Error('Cookie Jar had no item to delete: ' + cookie.toString());
+            }
+        };
+
+        proto.get = function (cookie) {
+            if (this.jar.has(cookie)) {
+                return this.jar.get(cookie);
+            } else {
+                throw new Error('Cookie Jar had no item to get: ' + cookie.toString());
+            }
+        };
+
+        proto.set = function (cookie) {
+            if (this.jar.has(cookie)) {
+                return this.jar.set(cookie);
+            } else {
+                throw new Error('Cookie Jar had no item to set: ' + cookie.toString());
+            }
+        };
+
+    }
+};
+
+WebBluetoothRequest = function(occurrence, handle, services) {
+    this.occurrenceReference = occurrence;
+    this.handleReference = handle;
+    this.servicesArray = services;
+    this.device = undefined;
+};
+
+
+WebBluetooth = function (cookieJar) {
+    'use strict';
+
+    // Properties
+    this.cookieJar = cookieJar;
 
     // Methods
     if (typeof this.WebBluetoothMethods !== 'function') {
@@ -223,50 +274,50 @@ WebBluetooth = function () {
 
         proto.WebBluetoothMethods = function() { };
 
-        proto.putDeviceOcc = function(occurrenceRef, userHandlePointer) {
-            if (this.request.occurrence !== undefined || this.request.userHandle !== undefined) {
-                throw new Error('Device Occurrence already exists: ' + this.request.occurrence + ' and ' + this.request.userHandle);
-            }
-            this.request.occurrence = occurrenceRef;
-            this.request.userHandle = userHandlePointer;
-            console.log('request has been set');
-            console.log(this.request);
-        };
-
-        proto.getDevice = function(handle) {
-            var strHandle = handle.toString();
-            console.log('getDevice: ' + handle);
-            console.log(this.devices);
-            if (this.devices.hasOwnProperty(strHandle)) {
-                var device = this.devices[strHandle];
-                return device;
-            } else {
-                return undefined;
-            }
-        };
-
-        proto.requestDevice = function(servicesArray) {
+        // Setup the device object and occurrence reference to be set after the user
+        // selects the device from the navigator.bluetooth.requestDevice call.
+        // Will return 0 if it failed to initiailize the device
+        // TODO: devincarr Add checks for valid availability of WebBluetooth on Device
+        proto.initializeDevice = function(occurrenceRef, deviceReference, servicesArray) {
             if (!Array.isArray(servicesArray)) {
-                throw new Error('Invalid parameters in getDevice, looking for an Array, provided: ' + servicesArray);
+                throw new Error('Invalid parameters in initializeDevice, looking for an Array, provided: ' + servicesArray);
             }
-            var that = this;
-            var handle = Object.keys(this.devices).length + 1;
-            var device = navigator.bluetooth.requestDevice(
-                {filters: [{services: servicesArray}] })
-                .then(function(dev) {
-                    console.log('request device handle (' + that.request.userHandle + '): ' + handle);
-                    console.log('request device occurrence: ' + that.request.occurrence);
-                    NationalInstruments.Vireo.dataWriteUInt32(that.request.userHandle, handle);
-                    NationalInstruments.Vireo.setOccurence(that.request.occurrence);
-                    return dev;
-                })
-                .catch(function(error) {
-                    console.log('Error setting occurrence for device:');
-                    console.log(error);
-                    return -1;
-                });
-            this.devices[handle] = device;
-            return handle;
+            var deviceCookie = 0;
+            try {
+                // store request
+                deviceCookie = this.cookieJar.create(new WebBluetoothRequest(occurrenceRef, servicesArray))
+                NationalInstruments.Vireo.dataWriteUInt32(deviceReference, deviceCookie);
+            } catch (error) {
+                // set error and trigger occurrence
+                NationalInstruments.Vireo.setOccurence(that.request.occurrence);
+            }
+                
+            return deviceCookie;
+        };
+
+        // Start the request device promise chain for a Bluetooth Device
+        proto.requestDevice = function(deviceReference) {
+            var request = this.cookieJar.get(deviceReference);
+            if (request instanceof WebBluetoothRequest) {
+                if (request.device !== undefined) {
+                    throw new Error('Device is already exists in the request');
+                }
+                // set the device object for the request as the promise
+                request.device = navigator.bluetooth.requestDevice(
+                    {filters: [{services: request.servicesArray}] })
+                    .then(function(device) {
+                        NationalInstruments.Vireo.setOccurence(request.occurrence);
+                        return dev;
+                    })
+                    .catch(function(error) {
+                        NationalInstruments.Vireo.setOccurence(request.occurrence);
+                        return -1;
+                    });
+                this.cookieJar.set(deviceReference, request);
+            } else {
+                // invalid reference parameter passed in
+                throw new Error('Invalid handle passed in: ' + deviceReference + ' (expected an instanceof WebBluetoothRequest)');
+            }
         };
 
         proto.getServer = function(device, attempts) {
@@ -368,14 +419,16 @@ WebSocketUsers = function () {
             }
         };
     }
-}
+};
 
 
 var httpUsers = new HttpUsers();
 
 var webSocketUsers = new WebSocketUsers();
 
-var webBluetooth = new WebBluetooth();
+var cookieJar = new CookieJar();
+
+var webBluetooth = new WebBluetooth(cookieJar);
 
 //TODO: tnelligan break this up into generic, http, websockets
 return {
