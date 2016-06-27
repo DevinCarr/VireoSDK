@@ -216,6 +216,7 @@ WebBluetooth = function () {
     // Properties
     this.devices = {};
     this.request = {};
+    this.extra = {};
 
     // Methods
     if (typeof this.WebBluetoothMethods !== 'function') {
@@ -310,6 +311,16 @@ WebBluetooth = function () {
             console.log('Reading Value...');
             console.log(characteristic);
             return characteristic.readValue();
+        };
+
+        proto.setValue = function(characteristic, key) {
+            console.log('Setting Value: ' + this.extra[key]);
+            return characteristic.writeValue(this.extra[key]);
+        };
+
+        proto.setExtra = function(key, value) {
+            console.log('Set extra value: { "' + key + '": ' + value + ' }');
+            this.extra[key.toString()] = value;
         };
     }
 };
@@ -595,6 +606,10 @@ return {
         function (occurrenceRef, handler) {
             webBluetooth.putDeviceOcc(occurrenceRef, handler);
         },
+    putWebBluetoothValue:
+        function (key, value) {
+            webBluetooth.putExtra(key, value);
+        },
     requestWebBluetoothDevice:
         function (services) {
             return webBluetooth.requestDevice(services);
@@ -624,6 +639,38 @@ return {
                 })
                 .catch(function(error) {
                     console.log('Argh! ' + error);
+                    console.log(error);
+                    return error;
+                });
+        },
+    setWebBluetoothColor:
+        function (userHandle, color) {
+            console.log('Requesting Bluetooth Candle..');
+            var data = [];
+            if (color === 0) {
+                // red
+                data = new Uint8Array([0x00, 255, 0, 0]);
+            } else if (color === 1) {
+                // blue
+                data = new Uint8Array([0x00, 0, 0, 255]);
+            } else if (color === 2) {
+                // green
+                data = new Uint8Array([0x00, 0, 255, 0]);
+            } else {
+                // blue
+                data = new Uint8Array([0x00, 255, 255, 255]);
+            }
+
+            webBluetooth.setExtra('color', data);
+
+
+            return webBluetooth.getDevice(userHandle)
+                .then(function(device) { return webBluetooth.getServer(device,0); })
+                .then(function(server) { return webBluetooth.getService(server, 0xFF02); })
+                .then(function(service) { return webBluetooth.getCharacteristic(service, 0xFFFC); })
+                .then(function(characteristic) { return webBluetooth.setValue(characteristic,'color'); })
+                .catch(function(error) {
+                    console.log('Error: ' + error);
                     console.log(error);
                     return error;
                 });

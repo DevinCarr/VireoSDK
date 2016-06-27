@@ -50,6 +50,14 @@ var WebBluetoothClient =
                 NationalInstruments.Vireo.dataWriteString(errorMessage, error, error.length);
                 return -1;
             });
+    },
+
+    jsWebBluetoothClientSetColor: function(userHandle, color, errorMessage) {
+        return NationalInstruments.Vireo.setWebBluetoothColor(userHandle, color)
+            .catch(function(error) {
+                NationalInstruments.Vireo.dataWriteString(errorMessage, error, error.length);
+                return -1;
+            });
     }
 };
 

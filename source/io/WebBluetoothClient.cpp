@@ -28,6 +28,7 @@ using namespace Vireo;
 extern "C" {
     extern void jsWebBluetoothClientGetDevice(UInt32 *, const char *, int, Int32 *, StringRef, OccurrenceRef);
     extern Int32 jsWebBluetoothClientGetBatteryLevel(UInt32, StringRef);
+    extern Int32 jsWebBluetoothClientSetColor(UInt32, UInt32, StringRef);
 }
 #endif
 
@@ -58,9 +59,20 @@ VIREO_FUNCTION_SIGNATURE3(WebBluetoothClientGetBatteryLevel, UInt32, Int32, Stri
 }
 
 //------------------------------------------------------------
+// handle(0), color(1), error code(2), error message(3)
+VIREO_FUNCTION_SIGNATURE4(WebBluetoothClientSetColor, UInt32, UInt32, Int32, StringRef)
+{
+#if kVireoOS_emscripten
+    _Param(2) = jsWebBluetoothClientSetColor(_Param(0), _Param(1), _Param(3));
+#endif
+    return _NextInstruction();
+}
+
+//------------------------------------------------------------
 DEFINE_VIREO_BEGIN(WebBluetoothClient)
     DEFINE_VIREO_REQUIRE(Synchronization)
     DEFINE_VIREO_FUNCTION(WebBluetoothClientGetDevice, "p(io(.UInt32) i(.String) io(.Int32) o(.String) i(.Occurrence))")
     DEFINE_VIREO_FUNCTION(WebBluetoothClientGetBatteryLevel, "p(io(.UInt32) io(.Int32) o(.String))")
+    DEFINE_VIREO_FUNCTION(WebBluetoothClientSetColor, "p(io(.UInt32) io(.UInt32) io(.Int32) o(.String))")
 DEFINE_VIREO_END()
 #endif
