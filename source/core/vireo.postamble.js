@@ -254,11 +254,22 @@ CookieJar = function() {
     }
 };
 
-WebBluetoothRequest = function(occurrence, handle, services) {
-    this.occurrenceReference = occurrence;
-    this.handleReference = handle;
+WebBluetoothRequest = function(occurrenceRef, services, errorCodeRef, errorMessageRef) {
+    this.occurrenceReference = occurrenceRef;
     this.servicesArray = services;
+    this.errorCodeReference = errorCodeRef;
+    this.errorMessageReference = errorMessageRef;
     this.device = undefined;
+
+    this.occurrenceSet = false;
+    this.setErrorAndOccurrence = function(errorCode, errorMessage) {
+        NationalInstruments.Vireo.dataWriteInt32(this.errorCodeReference, errorCode);
+        NationalInstruments.Vireo.dataWriteString(this.errorMessageReference, errorMessage, errorMessage.length);
+        if (!occurrenceSet) {
+            NationalInstruments.Vireo.setOccurence(this.occurrenceReference);
+            occurrenceSet = true;
+        }
+    };
 };
 
 
@@ -278,45 +289,40 @@ WebBluetooth = function (cookieJar) {
         // selects the device from the navigator.bluetooth.requestDevice call.
         // Will return 0 if it failed to initiailize the device
         // TODO: devincarr Add checks for valid availability of WebBluetooth on Device
-        proto.initializeDevice = function(occurrenceRef, deviceReference, servicesArray) {
+        proto.initializeDevice = function(occurrenceRef, requestRef, servicesArray, errorCodeRef, errorMessageRef) {
             if (!Array.isArray(servicesArray)) {
                 throw new Error('Invalid parameters in initializeDevice, looking for an Array, provided: ' + servicesArray);
             }
-            var deviceCookie = 0;
-            try {
-                // store request
-                deviceCookie = this.cookieJar.create(new WebBluetoothRequest(occurrenceRef, servicesArray))
-                NationalInstruments.Vireo.dataWriteUInt32(deviceReference, deviceCookie);
-            } catch (error) {
-                // set error and trigger occurrence
-                NationalInstruments.Vireo.setOccurence(that.request.occurrence);
-            }
-                
-            return deviceCookie;
+            var requestCookie = 0;
+            // store request
+            requestCookie = this.cookieJar.create(new WebBluetoothRequest(occurrenceRef, servicesArray, errorCodeRef, errorMessageRef))
+            NationalInstruments.Vireo.dataWriteUInt32(requestRef, requestCookie);
+                    
+            return requestCookie;
         };
 
         // Start the request device promise chain for a Bluetooth Device
-        proto.requestDevice = function(deviceReference) {
-            var request = this.cookieJar.get(deviceReference);
+        proto.requestDevice = function(requestRef) {
+            var request = this.cookieJar.get(requestRef);
             if (request instanceof WebBluetoothRequest) {
                 if (request.device !== undefined) {
-                    throw new Error('Device is already exists in the request');
+                    throw new Error('Device is already exists in the request: ' + requestRef);
                 }
                 // set the device object for the request as the promise
                 request.device = navigator.bluetooth.requestDevice(
                     {filters: [{services: request.servicesArray}] })
                     .then(function(device) {
-                        NationalInstruments.Vireo.setOccurence(request.occurrence);
+                        request.setErrorAndOccurrence(0, '');
                         return dev;
                     })
                     .catch(function(error) {
-                        NationalInstruments.Vireo.setOccurence(request.occurrence);
+                        request.setErrorAndOccurrence(-1, error.message);
                         return -1;
                     });
-                this.cookieJar.set(deviceReference, request);
+                this.cookieJar.set(requestRef, request);
             } else {
                 // invalid reference parameter passed in
-                throw new Error('Invalid handle passed in: ' + deviceReference + ' (expected an instanceof WebBluetoothRequest)');
+                throw new Error('Invalid handle passed in: ' + requestRef+ ' (expected an instanceof WebBluetoothRequest)');
             }
         };
 
@@ -644,13 +650,44 @@ return {
             NationalInstruments.Vireo.setOccurence(occurrenceRef);
             return errorNum;
         },
-    putDeviceOccurrence:
-        function (occurrenceRef, handler) {
-            webBluetooth.putDeviceOcc(occurrenceRef, handler);
+    initializeWebBluetooth:
+        function(occurrenceRef, requestRef, servicesArray, errorCodeRef, errorMessageRef) {
+            var code = 0;
+            var text = '';
+            var cookie = 0;
+            try {
+                cookie = webBluetooth.initializeDevice(occurrenceRef, requestRef, servicesArray, errorCodeRef, errorMessageRef);
+            } catch (error) {
+                // set error and trigger occurrence
+                code = -1;
+                text = error.message;
+            }
+
+            // set error code and message
+            NationalInstruments.Vireo.dataWriteInt32(errorCodeRef, code);
+            NationalInstruments.Vireo.dataWriteString(errorMessageRef, text, text.length);
+
+            // setting device request failed to be put in cookieJar
+            if (cookie === 0) {
+                NationalInstruments.Vireo.setOccurence(occurrenceRef);
+            }
         },
     requestWebBluetoothDevice:
-        function (services) {
-            return webBluetooth.requestDevice(services);
+        function (requestRef) {
+            var code = 0;
+            var text = '';
+            try {
+                webBluetooth.requestDevice(requestRef);
+            } catch (error) {
+                // set error and trigger occurrence
+                code = -1;
+                text = error.message;
+
+                // set error code and message
+                NationalInstruments.Vireo.dataWriteInt32(errorCodeRef, code);
+                NationalInstruments.Vireo.dataWriteString(errorMessageRef, text, text.length);
+                NationalInstruments.Vireo.setOccurence(occurrenceRef);
+            }
         },
     getWebBluetoothDevice:
         function (userHandle) {
