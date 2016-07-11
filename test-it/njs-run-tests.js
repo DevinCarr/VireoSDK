@@ -1,32 +1,24 @@
 // Node program #2 a simple test runner
 // a bit of an improvement over bash.
 
-require('colors');
 fs = require('fs');
 jsdiff = require('diff');
 path = require('path');
 cp = require('child_process');
 vireo = {};
 
+require('colors');
 
 var app = {};
-app.testFailures = {};
+app.testFailures = [];
 app.totalResultLines = 0;
 
 var blacklist = null;
 
-// Constructor function for TestFailure objects
-function TestFailure(testName, testResults) {
-    this.name = testName;
-    this.results = testResults;
-}
-
-// Filter function to check if a file is a '.via'
 function IsViaFile(name) {
     return path.extname(name) === '.via';
 }
 
-// Open and process the blacklist JSON file
 function GenerateBlacklist ()
 {
     if (blacklist === null) {
@@ -47,7 +39,6 @@ function GenerateBlacklist ()
     }
 }
 
-// Filter function to check if a test is within the blacklist
 function IsNotBlackList(name) {
     GenerateBlacklist();
     for (var i = 0; i < blacklist.length; i++)
@@ -60,12 +51,10 @@ function IsNotBlackList(name) {
     return true;
 }
 
-// Print out the blacklist of via tests
 function PrintBlackList ()
 {
     GenerateBlacklist();
     if (blacklist.length > 0) {
-        console.log('\n');
         console.log('=====================================================================================')
         console.log('The following tests(' + blacklist.length + ') were not executed. They are blacklisted.')
         for (var i = 0; i < blacklist.length; i++) {
@@ -81,19 +70,26 @@ function PrintBlackList ()
     }
 }
 
-function PrintCharactersToConsole (testName, oldResults, cleanNewResults) {
+// -----------------------------------------------------------------------------------
+// Helpful function when debugging why oldResults != cleanNewResults on ComparaResults
+// It outputs a comparison of the two strings char by char
+function PrintCharactersToConsole (testName, oldResults, cleanNewResults)
+{
     var firstDifferenceFound = false;
     var maxLength = oldResults.length;
-    if (cleanNewResults.length > maxLength) {
+    if (cleanNewResults.length > maxLength)
+    {
         maxLength = cleanNewResults.length;
     }
     console.log('=======================================================');
     console.log('"' + testName + '"');
     console.log('Comparing oldResults(' + oldResults.length + ') vs cleanNewResults(' + cleanNewResults.length + ')');
     console.log('=======================================================');
-    for (i = 0; i < maxLength; i++) {
+    for (i = 0; i < maxLength; i++)
+    {
         var oldResultsText = '';
-        if (i < oldResults.length) {
+        if (i < oldResults.length)
+        {
             oldResultsText = oldResults.charCodeAt(i)
         }
         var cleanNewResultsText = '';
@@ -101,19 +97,17 @@ function PrintCharactersToConsole (testName, oldResults, cleanNewResults) {
             cleanNewResultsText = cleanNewResults.charCodeAt(i)
         }
         var differenceText = '';
-        if (!firstDifferenceFound && (i < oldResults.length) && (i < cleanNewResults.length) && oldResults[i] != cleanNewResults[i]) {
+        if (!firstDifferenceFound && (i < oldResults.length) && (i < cleanNewResults.length) && oldResults[i] != cleanNewResults[i])
+        {
             differenceText = ' <---------- Found first difference';
             firstDifferenceFound = true;
         }
         console.log(oldResultsText + '\t' + cleanNewResultsText + '\t' + differenceText);
     }
 }
-// Compare the two strings and check for equality.
-// This is the way that we test the inputs for vireo to the expected
-// outputs.
+
 function CompareResults(testName, oldResults, newResults, msec) {
-    var diffs = [],
-        results;
+    var diffs = [];
     oldResults = oldResults.replace(/\r\n/gm, "\n");
     newResults = newResults.replace(/\r\n/gm, "\n");
     var cleanNewResults = newResults.replace(/^\/\/.*\n/gm, ''); // use \n instead of $ so entire line is deleted; don't leave blank line
@@ -131,23 +125,22 @@ function CompareResults(testName, oldResults, newResults, msec) {
     if (oldResults === cleanNewResults) {
         console.log('Test for "' + testName + '" passed. (' + msec + 'ms)' );
     } else {
-        console.log(('Test for "' + testName + '" failed.').red);
+        console.log('Test for "' + testName + '" failed.');
+
+        process.stdout.write('----------------\n');
         diffs = jsdiff.diffLines(oldResults, cleanNewResults);
-        results = "";
         diffs.forEach(function(part){
             var color = part.added ? 'green' : part.removed ? 'red' : 'grey';
-            results = results.concat(part.value[color]).concat('\n');
-        });
+            process.stdout.write(part.value[color]);
+            });
+        process.stdout.write('----------------\n');
 
-        var key = testName.toString();
-        if (!app.testFailures.hasOwnProperty(key)) {
-            app.testFailures[key] = new TestFailure(testName, results);
-        }
+        // When will all the test be done?
+        app.testFailures.push(testName);
     }
 }
 
-// Process the via files for the provided tester function and compare with
-// the results file of the same name but with a '.vtr' extension
+//------------------------------------------------------------
 function RunTestCore(testName, tester, execOnly)
 {
     var resultsFileName = 'results/' + path.basename(testName, '.via') + '.vtr';
@@ -176,7 +169,6 @@ function RunTestCore(testName, tester, execOnly)
     }
 }
 
-// Process a provided test and return the stdout from the vireo.js runtime
 function RunVJSTest(testName) {
     console.log('Executing "' + testName + '"');
     vireo.reboot();
@@ -198,11 +190,10 @@ function RunVJSTest(testName) {
     return vireo.stdout;
 }
 
-// Setup the esh binary for via execution
 function RunNativeTest(testName) {
     var newResults = '';
     try {
-        newResults = cp.execFileSync('../dist/esh', [ testName ]).toString();
+        newResults = cp.execFileSync('esh', [ testName ]).toString();
     } catch (e) {
         // If Vireo detects an error it will return non zero
         // and exec will throw an exception, so catch the results.
@@ -211,15 +202,15 @@ function RunNativeTest(testName) {
     return newResults;
 }
 
-// Setup the vireo.js runtime for instruction execution
+//------------------------------------------------------------
 function SetupVJS()
 {
-    vireo = require('../dist/vireo.js');
+    vireo = require('../target-support/js/vireo.js');
     vireo.stdout = '';
     vireo.core.print = function(text) { vireo.stdout = vireo.stdout + text + '\n'; };
 }
 
-// Testing functions for processing the tests against vireo.js or esh binary
+//------------------------------------------------------------
 function JSTester(testName, execOnly) { RunTestCore(testName, RunVJSTest, execOnly); }
 function NativeTester(testName, execOnly) { RunTestCore(testName, RunNativeTest, execOnly); }
 
@@ -229,12 +220,10 @@ function NativeTester(testName, execOnly) { RunTestCore(testName, RunNativeTest,
     var argv = process.argv.slice();
     argv.shift(); // node path
     argv.shift(); // script path
-    var test_native = false;
     var tester = false;
     var all = false;
     var once = false;
     var execOnly = false;
-    var errorCode = 0;
 
     while(argv.length > 0) {
         var arg = argv[0];
@@ -246,7 +235,6 @@ function NativeTester(testName, execOnly) { RunTestCore(testName, RunNativeTest,
             once = true;
         } else if (arg === '-n') {
             tester = NativeTester;
-            test_native = true;
         } else if (arg === '-once') {
             once = true;
         } else if (arg === '-all') {
@@ -254,33 +242,16 @@ function NativeTester(testName, execOnly) { RunTestCore(testName, RunNativeTest,
             testFiles = testFiles.filter(IsViaFile);
             testFiles = testFiles.filter(IsNotBlackList);
             all = true;
-        } else if (IsViaFile(arg)) {
-            testFiles.push(arg);
         } else {
-            console.log('Invalid argument parameter: ' + arg);
-            errorCode = 1;
-            process.exit(errorCode);
+            testFiles.push(arg);
         }
         argv.shift();
     }
 
-    // If no tester listed in the arguments, assume vireo.js
     if (!tester) {
         SetupVJS();
         tester = JSTester;
     }
-
-    // Output which tests are being run
-    console.log("\n=============================================".cyan);
-    console.log("=============================================".cyan);
-    if (test_native) {
-        console.log("RUNNING TESTS AGAINST ESH (NATIVE)".cyan);
-    } else {
-        console.log("RUNNING TESTS AGAINST VIREO.JS".cyan);
-    }
-    console.log("=============================================".cyan);
-    console.log("=============================================".cyan);
-
 
     if (testFiles.length > 0) {
         testFiles.map(
@@ -300,39 +271,23 @@ function NativeTester(testName, execOnly) { RunTestCore(testName, RunNativeTest,
         // This is being tracked by defect: DE9032
         // testFiles.map(tester); 
         // ----------------------------------------------------------------------
-
-        // Check the testFailures (if any)
-        if (Object.keys(app.testFailures).length > 0) {
-            console.log("=============================================");
-            console.log("The following tests failed: " + Object.keys(app.testFailures).length);
-            console.log("=============================================");
-            for (var test in app.testFailures) {
-                if (app.testFailures.hasOwnProperty(test)) {
-                    console.log("===========================");
-                    console.log(app.testFailures[test].name);
-                    console.log("===========================");
-                    console.log(app.testFailures[test].results);
-                    console.log('\n');
-                }
-            }
-            // Make sure to set error code for travis-ci failure
-            errorCode = 1;
+        console.log("Total test vectors :" + app.totalResultLines);
+        if (app.testFailures.length > 0) {
+            console.log("\n===========================");
+            console.log("The following tests failed:");
+            console.log("===========================");
+            console.log(app.testFailures);
         }
         else {
-            console.log("\n=============================================".green);
-            console.log("SUCCESS: All tests passed for this execution!".green);
-            console.log("=============================================\n".green);
+            console.log("\n=============================================");
+            console.log("SUCCESS: All tests passed for this execution!");
+            console.log("=============================================\n");
         }
-
-        // Print out the Blacklist to note which tests were skipped
         if (all) {
             PrintBlackList();
         }
 
     } else {
-        console.log("Nothing to test (try and run with -all)");
-        errorCode = 1;
+        console.log("Nothing to test.");
     }
-
-    process.exit(errorCode);
 })();

@@ -1,22 +1,14 @@
 # Makefile for TravisCI
 
-.PHONY: native js testjs testnative
+all:
+	pwd
+	ls
+	cd make-it; node make.js clean v64
+	mkdir /home/travis/bin
+	cp make-it/esh /home/travis/bin/esh
+	ls -l make-it/esh
+	which esh
 
-all: native js
-
-native:
-	cd make-it; make simple
-
-js:
-	cd make-it; make vjs
-
-test: testnative testjs
-
-testjs:
-	cd test-it; node test.js -all -j
-
-testnative:
-	cd test-it; node test.js -all -n
-
-clean:
-	cd make-it; make clean
+test:
+	echo "Testing goes here"
+	cd test-it; ./run-tests.sh
