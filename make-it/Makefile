@@ -89,7 +89,7 @@ endif
 CFLAGS+= -DVIREO_STDIO=1 -DVIREO_FILESYSTEM=1 -DVIREO_FILESYSTEM_DIRLIST=1
 
 COVERAGE_CFLAGS = $(CFLAGS) -fprofile-arcs -ftest-coverage
-COVERAGE_LDFLAGS = $(LDFLAGS) --coverage
+COVERAGE_LDFLAGS = $(LDFLAGS) --coverage -lprofile_rt
 COVERAGE_CC = /usr/bin/clang++
 
 ifneq ($(wildcard custom.mak),)
