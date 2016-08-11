@@ -121,8 +121,8 @@ simple:
 
 coverage:
 	make CC='$(COVERAGE_CC)' CFLAGS='$(COVERAGE_CFLAGS)' LDFLAGS='$(COVERAGE_LDFLAGS)' esh
-	cd ../test-it; ./test.js -once -n > /dev/null 2>&1
-	cd objs; llvm-cov gcov -f -b *.gcda > /dev/null 2>&1
+	cd ../test-it; ./test.js -once -n 1> /dev/null
+	cd objs; llvm-cov gcov -f -b *.gcda 1> /dev/null
 	cp llvm-gcov.sh ./objs
 	./run-lcov.sh
 	genhtml cov.info -o html_coverage_output
