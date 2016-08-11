@@ -22,5 +22,6 @@ clean:
 	cd make-it; make clean
 
 docs:
+	make clean
 	cd make-it; make coverage
 	cd make-it; ./deploy-docs.sh
