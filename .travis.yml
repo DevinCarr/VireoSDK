@@ -24,15 +24,12 @@ before_script:
     - node -v
 script:
     - npm install
-    - if [ "$CXX" = "clang++" ]; then export CXX="clang++-3.7" CC="clang-3.7"; fi
-    - clang++ -v
+    - export CC="clang++-3.7"
     - make native
     - source emscripten-sdk/emsdk_env.sh
-    - clang++ -v
     - make js
     - make testjs
     - make testnative
 after_success:
-    - if [ "$CXX" = "clang++" ]; then export CXX="clang++-3.7" CC="clang-3.7"; fi
-    - clang++ -v
+    - export CC="clang++-3.7"
     - make docs
