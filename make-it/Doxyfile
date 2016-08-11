@@ -58,7 +58,7 @@ PROJECT_LOGO           = "dox/Vireo.png"
 # entered, it will be relative to the location where doxygen was started. If
 # left blank the current directory will be used.
 
-OUTPUT_DIRECTORY       = ../Documents/gh-pages
+OUTPUT_DIRECTORY       = "./gh_docs"
 
 # If the CREATE_SUBDIRS tag is set to YES, then doxygen will create 4096 sub-
 # directories (in 2 levels) under the output directory of each output format and
@@ -758,8 +758,8 @@ WARN_LOGFILE           =
 # outline can be controlled and easily changed.
 
 INPUT  = \
-    core \
-    include \
+    ../source/core \
+    ../source/include \
     dox/Intro.md \
     dox/IntroTypeExamples.md \
     dox/IntroParallelClumpExamples.md \

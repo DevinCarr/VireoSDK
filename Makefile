@@ -1,6 +1,6 @@
 # Makefile for TravisCI
 
-.PHONY: native js testjs testnative
+.PHONY: native js testjs testnative docs
 
 all: native js
 
@@ -20,3 +20,7 @@ testnative:
 
 clean:
 	cd make-it; make clean
+
+docs:
+	cd make-it; make coverage
+	cd make-it; ./deploy-docs.sh
