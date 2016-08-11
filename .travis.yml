@@ -10,11 +10,12 @@ addons:
             - ubuntu-toolchain-r-test
         packages:
             - g++-4.9
-            - clang
+            - clang-3.7
             - doxygen
             - lcov
 before_script:
     - if [ "$CXX" = "g++" ]; then export CXX="g++-4.9" CC="gcc-4.9"; fi
+    - if [ "$CXX" = "clang++" ]; then export CXX="clang++-3.7" CC="clang-3.7"; fi
     - git clone --depth 1 https://github.com/urho3d/emscripten-sdk.git && emscripten-sdk/emsdk activate --build=Release sdk-master-64bit && source emscripten-sdk/emsdk_env.sh
     - cat ~/.emscripten
     - emcc -v
